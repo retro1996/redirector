@@ -1,21 +1,31 @@
 <script lang="ts">
-  import {
-    Card,
-    CardContent,
-    CardHeader,
-    CardTitle,
-  } from '$lib/components/ui/card'
   import { ModeWatcher } from 'mode-watcher'
   import Dataset from './components/Dataset.svelte'
-  import Form from './components/Form.svelte'
+  import RuleDialog from './components/RuleDialog.svelte'
   import DarkMode from './components/DarkMode.svelte'
   import { Button } from '$lib/components/ui/button'
   import { Toaster } from '$lib/components/ui/sonner'
+  import { rules } from './store'
+  import { toast } from 'svelte-sonner'
+  import type { MatchRule } from '$lib/url'
+
+  let addDialog = $state({
+    open: false,
+  })
+
+  function handleAddRule() {
+    addDialog.open = true
+  }
+
+  function handleSaveNewRule(rule: MatchRule) {
+    $rules = [rule, ...$rules]
+    toast.success('Rule added')
+  }
 </script>
 
-<Card class="container my-8 mx-auto bg-transparent p-0 md:p-8 border-none">
-  <CardHeader class="pb-4">
-    <CardTitle class="flex items-center gap-2">
+<div class="container mx-auto p-2 md:p-4">
+  <div class="mb-4">
+    <div class="flex items-center gap-2">
       <span class="text-xl font-bold mr-auto">Redirector</span>
       <DarkMode />
       <a href="https://discord.gg/jwhvMBTM6G" target="_blank">
@@ -31,15 +41,26 @@
           >
         </Button>
       </a>
-    </CardTitle>
-  </CardHeader>
-  <CardContent>
-    <Form />
-    <Dataset />
-  </CardContent>
-</Card>
+    </div>
+  </div>
+  <div>
+    <Dataset onAddRule={handleAddRule} />
+  </div>
+</div>
 <ModeWatcher />
-<Toaster richColors />
+<Toaster richColors closeButton position="top-right" />
+
+<!-- Add Rule Dialog -->
+{#if addDialog.open}
+  <RuleDialog
+    bind:open={addDialog.open}
+    allRules={$rules}
+    onClose={() => {
+      addDialog.open = false
+    }}
+    onSave={handleSaveNewRule}
+  />
+{/if}
 
 <style>
 </style>

@@ -1,7 +1,6 @@
 <script lang="ts">
   import { rules } from '../store'
   import { Button } from '$lib/components/ui/button'
-  import { Input } from '$lib/components/ui/input'
   import { Checkbox } from '$lib/components/ui/checkbox'
   import {
     CheckIcon,
@@ -9,7 +8,6 @@
     ChevronUp,
     SquarePenIcon,
     TrashIcon,
-    XIcon,
   } from '@lucide/svelte'
   import {
     Table,
@@ -21,13 +19,20 @@
   } from '$lib/components/ui/table'
   import { uniqBy } from 'es-toolkit'
   import { toast } from 'svelte-sonner'
-  import { SelectGroup } from '$lib/components/extra/select'
   import { type MatchRule } from '$lib/url'
+  import RuleDialog from './RuleDialog.svelte'
 
-  let edit: {
-    index: number
-    rule: MatchRule
-  } | null = $state(null)
+  interface Props {
+    onAddRule: () => void
+  }
+
+  let { onAddRule }: Props = $props()
+
+  let editDialog = $state<{
+    open: boolean
+    index?: number
+    rule?: MatchRule
+  }>({ open: false })
 
   function sortRules(upOrDown: string, index: number) {
     if (upOrDown == 'up') {
@@ -42,29 +47,23 @@
   }
 
   function openEdit(index: number) {
-    edit = {
+    editDialog = {
+      open: true,
       index,
       rule: { ...$rules[index] },
     }
   }
 
-  function saveEdit() {
-    if (!edit) {
-      return
+  function handleSave(rule: MatchRule, index?: number) {
+    if (index !== undefined) {
+      $rules[index] = rule
+      toast.success('Rule updated')
     }
-    $rules[edit.index] = edit.rule
-    edit = null
-  }
-
-  function cancelEdit() {
-    edit = null
   }
 
   function deleteRule(index: number) {
     $rules = $rules.filter((_, i) => i !== index)
-    if (edit) {
-      cancelEdit()
-    }
+    toast.success('Rule deleted')
   }
 
   function exportRules() {
@@ -79,13 +78,6 @@
   }
 
   function importRules() {
-    if (edit) {
-      const ok = confirm('Import will cancel edit mode, are you sure?')
-      if (!ok) {
-        return
-      }
-      cancelEdit()
-    }
     const input = document.createElement('input')
     input.type = 'file'
     input.accept = 'application/json'
@@ -105,21 +97,22 @@
   }
 </script>
 
-<div class="flex items-center justify-between gap-2">
+<div class="flex items-center justify-between gap-2 mb-4">
   <h2 class="text-lg font-bold mr-auto">Rules</h2>
-  <Button variant="secondary" size="sm" onclick={exportRules} title="Export"
-    >Export</Button
-  >
-  <Button variant="secondary" size="sm" onclick={importRules} title="Import"
-    >Import</Button
-  >
+  <Button size="sm" onclick={onAddRule} title="Add Rule">Add Rule</Button>
+  <Button variant="secondary" size="sm" onclick={exportRules} title="Export">
+    Export
+  </Button>
+  <Button variant="secondary" size="sm" onclick={importRules} title="Import">
+    Import
+  </Button>
 </div>
 
 <Table class="table-fixed w-full min-w-4xl">
   <TableHeader>
     <TableRow>
-      <TableHead class="w-32">Mode</TableHead>
-      <TableHead class="w-20">Enabled</TableHead>
+      <TableHead class="w-24">Mode</TableHead>
+      <TableHead class="w-16">Enabled</TableHead>
       <TableHead class="w-1/2">From</TableHead>
       <TableHead class="w-1/2">To</TableHead>
       <TableHead class="w-32 text-right">Action</TableHead>
@@ -128,135 +121,85 @@
   <TableBody>
     {#each $rules as rule, index (index)}
       <TableRow>
-        {#if edit && edit.index === index}
-          <TableCell class="w-32">
-            <SelectGroup
-              bind:value={edit.rule.mode}
-              options={[
-                { label: 'Regex', value: 'regex' },
-                { label: 'URL Pattern', value: 'url-pattern' },
-              ]}
-              placeholder="Select mode"
-              class="w-full"
-            />
-          </TableCell>
-          <TableCell class="w-20">
-            <Checkbox bind:checked={edit.rule.enabled} title="Enabled">
-              {#if edit.rule.enabled}
-                <CheckIcon class="h-4 w-4" />
-              {/if}
-            </Checkbox>
-          </TableCell>
-          <TableCell class="w-1/2">
-            <Input
-              type="text"
-              class="w-full"
-              bind:value={edit.rule.from}
-              title="From"
-            />
-          </TableCell>
-          <TableCell class="w-1/2">
-            <Input
-              type="text"
-              class="w-full"
-              bind:value={edit.rule.to}
-              title="To"
-            />
-          </TableCell>
-          <TableCell class="w-32 flex gap-1 justify-end">
-            <Button
-              variant="default"
-              size="icon"
-              onclick={() => saveEdit()}
-              title="Save"
-              disabled={!edit.rule.from.trim() || !edit.rule.to.trim()}
-            >
+        <TableCell>
+          {rule.mode === 'regex'
+            ? 'Regex'
+            : rule.mode === 'url-pattern'
+              ? 'URL Pattern'
+              : 'Auto'}
+        </TableCell>
+        <TableCell>
+          <Checkbox bind:checked={rule.enabled} title="Enabled">
+            {#if rule.enabled}
               <CheckIcon class="h-4 w-4" />
-            </Button>
+            {/if}
+          </Checkbox>
+        </TableCell>
+        <TableCell class="truncate" title={rule.from}>
+          {rule.from}
+        </TableCell>
+        <TableCell class="truncate" title={rule.to}>
+          {rule.to}
+        </TableCell>
+        <TableCell class="flex gap-1 justify-end">
+          <div class="flex flex-col">
             <Button
-              variant="secondary"
-              size="icon"
-              onclick={() => cancelEdit()}
-              title="Cancel"
-            >
-              <XIcon class="h-4 w-4" />
-            </Button>
-            <Button
-              variant="destructive"
-              size="icon"
-              onclick={() => deleteRule(index)}
-              title="Delete"
-            >
-              <TrashIcon class="h-4 w-4" />
-            </Button>
-          </TableCell>
-        {:else}
-          <TableCell class="w-32">
-            {rule.mode === 'regex'
-              ? 'Regex'
-              : rule.mode === 'url-pattern'
-                ? 'URL Pattern'
-                : 'Auto'}
-          </TableCell>
-          <TableCell class="w-20">
-            <Checkbox bind:checked={rule.enabled} title="Enabled">
-              {#if rule.enabled}
-                <CheckIcon class="h-4 w-4" />
-              {/if}
-            </Checkbox>
-          </TableCell>
-          <TableCell class="w-1/2 truncate" title={rule.from}>
-            {rule.from}
-          </TableCell>
-          <TableCell class="w-1/2 truncate" title={rule.to}>
-            {rule.to}
-          </TableCell>
-          <TableCell class="w-32 flex gap-1 justify-end">
-            <div class="flex flex-col">
-              <Button
-                class="rounded-b-none h-4.5 w-9"
-                disabled={edit || !index}
-                onclick={() => {
-                  sortRules('up', index)
-                }}
-                variant="default"
-                size="icon"
-                title="Move up"
-              >
-                <ChevronUp class="h-4 w-4" />
-              </Button>
-              <Button
-                class="rounded-t-none border-t-0 h-4.5 w-9"
-                disabled={edit || index == $rules.length - 1}
-                onclick={() => {
-                  sortRules('down', index)
-                }}
-                variant="default"
-                size="icon"
-                title="Move down"
-              >
-                <ChevronDown class="h-4 w-4" />
-              </Button>
-            </div>
-            <Button
+              class="rounded-b-none h-4.5 w-9"
+              disabled={!index}
+              onclick={() => {
+                sortRules('up', index)
+              }}
               variant="default"
               size="icon"
-              onclick={() => openEdit(index)}
-              title="Edit"
+              title="Move up"
             >
-              <SquarePenIcon class="h-4 w-4" />
+              <ChevronUp class="h-4 w-4" />
             </Button>
             <Button
-              variant="destructive"
+              class="rounded-t-none border-t-0 h-4.5 w-9"
+              disabled={index == $rules.length - 1}
+              onclick={() => {
+                sortRules('down', index)
+              }}
+              variant="default"
               size="icon"
-              onclick={() => deleteRule(index)}
-              title="Delete"
+              title="Move down"
             >
-              <TrashIcon class="h-4 w-4" />
+              <ChevronDown class="h-4 w-4" />
             </Button>
-          </TableCell>
-        {/if}
+          </div>
+          <Button
+            variant="default"
+            size="icon"
+            onclick={() => openEdit(index)}
+            title="Edit"
+          >
+            <SquarePenIcon class="h-4 w-4" />
+          </Button>
+          <Button
+            variant="destructive"
+            size="icon"
+            onclick={() => deleteRule(index)}
+            title="Delete"
+          >
+            <TrashIcon class="h-4 w-4" />
+          </Button>
+        </TableCell>
       </TableRow>
     {/each}
   </TableBody>
 </Table>
+
+<!-- Edit Rule Dialog -->
+{#if editDialog.open}
+  <RuleDialog
+    bind:open={editDialog.open}
+    rule={editDialog.rule}
+    index={editDialog.index}
+    allRules={$rules}
+    onClose={() => {
+      editDialog.open = false
+    }}
+    onSave={handleSave}
+  />
+{/if}
