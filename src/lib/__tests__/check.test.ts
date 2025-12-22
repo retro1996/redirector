@@ -57,7 +57,7 @@ describe('checkRule', () => {
     const result = checkRuleChain([rule], 'https://example.com/')
     expect(result).toEqual({
       status: 'circular-redirect',
-      urls: ['https://example.com/', 'https://example.com/'],
+      urls: ['https://example.com/'],
     })
   })
   it('circular redirect in chain', () => {
@@ -82,7 +82,6 @@ describe('checkRule', () => {
       'https://b.com/test',
       'https://c.com/test',
       'https://a.com/test',
-      'https://b.com/test',
     ])
   })
 })
@@ -94,27 +93,27 @@ describe('Real-world', () => {
       to: 'https://www.reddit.com/r/$1/top/',
     }
 
-    const result = checkRuleChain(
+    const r1 = checkRuleChain([rule], 'https://www.reddit.com/r/MadeMeSmile/')
+    expect(r1).toEqual({
+      status: 'matched',
+      urls: ['https://www.reddit.com/r/MadeMeSmile/top/'],
+    })
+    const r2 = checkRuleChain(
       [rule],
-      'https://www.reddit.com/r/MadeMeSmile/',
+      'https://www.reddit.com/r/MadeMeSmile/top/',
     )
-    expect(result).toEqual({
+    expect(r2).toEqual({
       status: 'circular-redirect',
-      urls: [
-        'https://www.reddit.com/r/MadeMeSmile/top/',
-        'https://www.reddit.com/r/MadeMeSmile/top/',
-      ],
+      urls: ['https://www.reddit.com/r/MadeMeSmile/top/'],
     })
   })
 
   it('Reddit example: correct rule /r/subreddit/ to /r/subreddit/top/', () => {
-    // 修正后的规则，避免循环
     const rule: MatchRule = {
       from: 'https://www.reddit.com/r/([^/]+)/$',
       to: 'https://www.reddit.com/r/$1/top/',
     }
 
-    // 测试基本重定向
     expect(
       checkRuleChain([rule], 'https://www.reddit.com/r/MadeMeSmile/'),
     ).toEqual({

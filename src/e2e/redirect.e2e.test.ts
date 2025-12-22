@@ -507,3 +507,33 @@ test('preload requests should not trigger redirects', async ({
 
   await page.close()
 })
+
+// Test convergent/idempotent redirects (A → B → B)
+// This validates the fix for the GitHub issue about "many-to-one" redirects
+// Use case: Redirect all regional subdomains to a specific one (e.g., jp.v2ex.com → us.v2ex.com)
+// Source: ^https://\w+\.v2ex\.com/(.*)
+// Target: https://us.v2ex.com/$1
+// The rule matches both jp.v2ex.com and us.v2ex.com, but us.v2ex.com redirects to itself (idempotent)
+// This should NOT be treated as a circular error - it should simply stop the chain
+;[
+  {
+    from: 'https://jp.v2ex.com/test',
+    to: 'https://us.v2ex.com/test',
+  },
+  {
+    // Idempotent case: us.v2ex.com matches the rule but produces the same URL
+    // This is the convergent redirect - should NOT error
+    from: 'https://us.v2ex.com/test',
+    to: 'https://us.v2ex.com/test',
+  },
+].forEach((testUrl) =>
+  testRule({
+    rule: {
+      from: '^https://\\w+\\.v2ex\\.com/(.*)',
+      mode: 'regex',
+      to: 'https://us.v2ex.com/$1',
+    },
+    from: testUrl.from,
+    to: testUrl.to,
+  }),
+)

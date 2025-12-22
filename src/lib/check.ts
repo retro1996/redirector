@@ -46,10 +46,14 @@ export function checkRuleChain(
     if (!result.match) {
       throw new Error('Unexpected non-match after finding matching rule')
     }
+    // 幂等：规则匹配了，但 URL 没变化，这是终止点
+    if (currentUrl === result.url && result.url !== url) {
+      return { status: 'matched', urls: redirectUrls }
+    }
     if (redirectUrls.includes(result.url)) {
       return {
         status: 'circular-redirect',
-        urls: [...redirectUrls, result.url],
+        urls: redirectUrls,
       }
     }
     redirectUrls.push(result.url)
