@@ -34,6 +34,10 @@ Install from the Chrome Web Store.
 
 Regular expression is a powerful tool for matching URL patterns. Here are some examples:
 
+- Redirect an entire domain to another (e.g. reddit.com to old.reddit.com):
+  - From: `^https://www.reddit.com/(.*)`
+  - To: `https://old.reddit.com/$1`
+
 - Redirect Google search to DuckDuckGo:
   - From: `^https://www.google.com/search\?q=(.*?)&.*$`
   - To: `https://duckduckgo.com/?q=$1`
